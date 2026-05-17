@@ -1,0 +1,15 @@
+feast[redis,postgres]==0.38.0
+pyspark==3.5.1
+scikit-learn
+scikit-surprise
+lightgbm
+mlflow
+fastapi
+uvicorn
+pandas
+scipy
+requests
+plotly
+psycopg2-binary
+apache-airflow-providers-apache-spark
+jupyterlab

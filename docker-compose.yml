@@ -1,0 +1,87 @@
+version: '3.8'
+
+x-airflow-common:
+  &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
+  environment:
+    - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://postgres:postgres@postgres/airflow
+    - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+    - AIRFLOW__CORE__LOAD_EXAMPLES=False
+  volumes:
+    - ./scripts:/opt/airflow/dags
+    - ./data:/opt/airflow/data
+    - ./src:/opt/airflow/src
+    - ./feature_repo:/opt/airflow/feature_repo
+  depends_on:
+    - postgres
+
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: default_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker-init:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile.jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./:/home/jovyan/work
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    command: "start-notebook.sh --NotebookApp.token=''"
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.jupyter
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./:/home/jovyan/work
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=postgresql://postgres:postgres@postgres/mlflow
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/home/jovyan/work/mlruns
+    command: "mlflow server --backend-store-uri postgresql://postgres:postgres@postgres/mlflow --default-artifact-root /home/jovyan/work/mlruns --host 0.0.0.0"
+    depends_on:
+      - postgres
+
+  airflow-init:
+    <<: *airflow-common
+    command: >
+      bash -c "airflow db migrate && airflow users create --username admin --firstname admin --lastname admin --role Admin --email admin@example.com --password admin"
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: airflow webserver
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - airflow-init
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: airflow scheduler
+    depends_on:
+      - postgres
+      - airflow-init
+
+volumes:
+  postgres_data:

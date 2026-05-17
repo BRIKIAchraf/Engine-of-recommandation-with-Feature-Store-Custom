@@ -1,0 +1,10 @@
+project: recommendation_engine
+registry:
+  registry_type: sql
+  path: postgresql://postgres:postgres@postgres:5432/feast
+provider: local
+online_store:
+  type: redis
+  connection_string: "redis:6379"
+offline_store:
+  type: file
